@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#1B1F23">
+<title>Counter</title>
+<style>
+  :root {
+    --white: #F2F5F7;
+    --green: #00C853;
+    --blue: #00ACC1;
+    --yellow: #FFD740;
+    --dark: #1B1F23;
+    --gray: #8A9099;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--dark);
+    color: var(--white);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+
+  body.sheet-open { overflow: hidden; }
+
+  .app {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .timer {
+    position: relative;
+    width: min(78vw, 340px);
+    aspect-ratio: 1 / 1;
+  }
+
+  .ring {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .ring-track {
+    fill: none;
+    stroke: rgba(242, 245, 247, 0.12);
+    stroke-width: 14;
+  }
+
+  .arc {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+  }
+
+  .arc-work { stroke: var(--blue); }
+  .arc-rest { stroke: var(--white); }
+
+  .counter {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(56px, 20vw, 88px);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--white);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .settings {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 12px 4px 10px;
+    background: rgba(242, 245, 247, 0.06);
+    border: 1px solid rgba(242, 245, 247, 0.14);
+    border-radius: 12px;
+    color: var(--white);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .chip:hover { background: rgba(242, 245, 247, 0.1); }
+  .chip:active { background: rgba(242, 245, 247, 0.14); }
+
+  .chip:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(242, 245, 247, 0.04);
+  }
+
+  .chip-label {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    opacity: 0.65;
+  }
+
+  .chip-value {
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .primary {
+    width: 100%;
+    padding: 17px;
+    border: none;
+    border-radius: 14px;
+    background: var(--blue);
+    color: var(--dark);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .primary.submit {
+    background: var(--white);
+  }
+
+  .primary:hover { filter: brightness(1.05); }
+  .primary:active { transform: scale(0.98); }
+
+  .primary:disabled {
+    background: rgba(242, 245, 247, 0.12);
+    color: rgba(242, 245, 247, 0.4);
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 20;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+  }
+
+  .backdrop.open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease;
+  }
+
+  .sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 21;
+    margin: 0 auto;
+    max-width: 480px;
+    background: var(--white);
+    color: var(--dark);
+    border-radius: 20px 20px 0 0;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+    visibility: hidden;
+    transform: translateY(100%);
+    transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+
+  .sheet.open {
+    visibility: visible;
+    transform: translateY(0);
+    transition: transform 0.25s ease;
+  }
+
+  .sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 2px 12px;
+  }
+
+  .sheet-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .sheet-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(27, 31, 35, 0.08);
+    border-radius: 50%;
+    color: var(--dark);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .sheet-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 62vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(27, 31, 35, 0.12);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--dark);
+    font-size: 16px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .option:hover { background: rgba(0, 172, 193, 0.08); }
+
+  .option.selected {
+    border-color: var(--blue);
+    background: rgba(0, 172, 193, 0.1);
+    font-weight: 700;
+  }
+
+  .option.selected::after {
+    content: "\2713";
+    color: var(--blue);
+    font-weight: 700;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--yellow);
+    outline-offset: 2px;
+  }
+
+  .chip:focus-visible,
+  .option:focus-visible,
+  .sheet-close:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+
+  .primary:focus-visible {
+    outline: 2px solid var(--dark);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chip,
+    .primary,
+    .backdrop,
+    .sheet {
+      transition: none;
+    }
+  }
+</style>
+</head>
+<body>
+  <main class="app">
+    <div class="timer">
+      <svg class="ring" viewBox="0 0 320 320" role="img" aria-label="Timer progress">
+        <circle class="ring-track" cx="160" cy="160" r="138"></circle>
+        <g transform="rotate(-90 160 160)">
+          <circle class="arc arc-work" cx="160" cy="160" r="138"></circle>
+          <circle class="arc arc-rest" cx="160" cy="160" r="138"></circle>
+        </g>
+      </svg>
+      <div class="counter" id="counter" aria-label="Pace counter" aria-live="off">0</div>
+    </div>
+
+    <div class="settings" role="group" aria-label="Timer settings">
+      <button type="button" class="chip" data-key="work" aria-label="Work: 1 second">
+        <span class="chip-label">Work</span>
+        <span class="chip-value">1s</span>
+      </button>
+      <button type="button" class="chip" data-key="rest" aria-label="Rest: 1 second">
+        <span class="chip-label">Rest</span>
+        <span class="chip-value">1s</span>
+      </button>
+      <button type="button" class="chip" data-key="pace" aria-label="Pace: 99 seconds">
+        <span class="chip-label">Pace</span>
+        <span class="chip-value">99s</span>
+      </button>
+      <button type="button" class="chip" data-key="pity" aria-label="Pity: 1">
+        <span class="chip-label">Pity</span>
+        <span class="chip-value">1</span>
+      </button>
+    </div>
+
+    <button type="button" class="primary" id="primary" aria-label="Execute timer">Execute</button>
+  </main>
+
+  <div class="backdrop" id="backdrop" aria-hidden="true"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-hidden="true">
+    <div class="sheet-head">
+      <div class="sheet-title" id="sheet-title">Work</div>
+      <button type="button" class="sheet-close" id="sheet-close" aria-label="Close">&#215;</button>
+    </div>
+    <div class="sheet-options" id="sheet-options" role="group" aria-labelledby="sheet-title"></div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PRESETS = {
+    work: { label: 'Work', unit: 's', values: [1, 3, 5, 15, 30, 45, 60], value: 1 },
+    rest: { label: 'Rest', unit: 's', values: [1, 3, 5, 15, 30, 45, 60], value: 1 },
+    pace: { label: 'Pace', unit: 's', values: [0.1,0.2, 0.25, 0.33, 0.5, 1, 2, 99], value: 99 },
+    pity: { label: 'Pity', unit: '', values: [0, 0.17, 0.33, 0.5, 1], value: 1 }
+  };
+
+  var settings = {};
+  Object.keys(PRESETS).forEach(function (key) {
+    settings[key] = PRESETS[key].value;
+  });
+
+  var R = 138;
+  var CIRCUMFERENCE = 2 * Math.PI * R;
+
+  var ringWork = document.querySelector('.arc-work');
+  var ringRest = document.querySelector('.arc-rest');
+  var counterEl = document.getElementById('counter');
+  var primary = document.getElementById('primary');
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var sheet = document.getElementById('sheet');
+  var backdrop = document.getElementById('backdrop');
+  var sheetTitle = document.getElementById('sheet-title');
+  var sheetOptions = document.getElementById('sheet-options');
+  var sheetClose = document.getElementById('sheet-close');
+
+  var state = 'idle';
+  var startTime = 0;
+  var rafId = null;
+  var prevPhase = 'work';
+  var submitAvailable = true;
+  var lastFocused = null;
+
+  function formatValue(key, v) {
+    if (key === 'pace') {
+      return String(Math.round(v * 10) / 10);
+    }
+    return String(v);
+  }
+
+  function unitWord(key) {
+    return key === 'pity' ? '' : 'seconds';
+  }
+
+  function chipLabel(key, v) {
+    var unit = unitWord(key);
+    return PRESETS[key].label + ': ' + formatValue(key, v) + (unit ? ' ' + unit : '');
+  }
+
+  function renderChips() {
+    Object.keys(PRESETS).forEach(function (key) {
+      var chip = document.querySelector('.chip[data-key="' + key + '"]');
+      chip.querySelector('.chip-value').textContent = formatValue(key, settings[key]) + PRESETS[key].unit;
+      chip.setAttribute('aria-label', chipLabel(key, settings[key]));
+    });
+  }
+
+  function setSettingsDisabled(disabled) {
+    chips.forEach(function (chip) { chip.disabled = disabled; });
+  }
+
+  function setArc(el, len, start) {
+    if (len <= 0.001) {
+      el.style.visibility = 'hidden';
+      return;
+    }
+    el.style.visibility = 'visible';
+    el.setAttribute('stroke-dasharray', len + ' ' + (CIRCUMFERENCE - len));
+    el.setAttribute('stroke-dashoffset', String(-start));
+  }
+
+  function clearRing() {
+    setArc(ringWork, 0, 0);
+    setArc(ringRest, 0, 0);
+  }
+
+  function renderRing(elapsedInCycle, cycleTotal) {
+    var p = cycleTotal > 0 ? elapsedInCycle / cycleTotal : 0;
+    var workFrac = settings.work / cycleTotal;
+    var blueLen = Math.min(p, workFrac) * CIRCUMFERENCE;
+    var greenLen = Math.max(0, p - workFrac) * CIRCUMFERENCE;
+    setArc(ringWork, blueLen, 0);
+    setArc(ringRest, greenLen, workFrac * CIRCUMFERENCE);
+  }
+
+  function renderCounter(n) {
+    counterEl.textContent = String(n);
+  }
+
+  function canSubmit() {
+    return submitAvailable && settings.pity > 0;
+  }
+
+  function updatePrimary() {
+    if (state === 'idle') {
+      primary.textContent = 'Execute';
+      primary.setAttribute('aria-label', 'Execute timer');
+      primary.disabled = false;
+      primary.classList.remove('submit');
+    } else {
+      var submitable = canSubmit();
+      primary.textContent = submitable ? 'Submit' : 'Sorry';
+      primary.setAttribute('aria-label', submitable ? 'Submit to stop timer' : 'Sorry, submit unavailable');
+      primary.disabled = !submitable;
+      primary.classList.add('submit');
+    }
+  }
+
+  function loop(now) {
+    var elapsed = (now - startTime) / 1000;
+    var cycleTotal = settings.work + settings.rest;
+    var elapsedInCycle = elapsed % cycleTotal;
+    var phase = elapsedInCycle < settings.work ? 'work' : 'rest';
+
+    if (prevPhase === 'rest' && phase === 'work') {
+      submitAvailable = true;
+      updatePrimary();
+    }
+    prevPhase = phase;
+
+    var paceInTenths = Math.round(settings.pace * 10);
+    var counter = phase === 'work'
+      ? Math.floor((elapsedInCycle * 10) / paceInTenths)
+      : Math.floor((settings.work * 10) / paceInTenths);
+
+    renderCounter(counter);
+    renderRing(elapsedInCycle, cycleTotal);
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function launch() {
+    state = 'active';
+    startTime = performance.now();
+    prevPhase = 'work';
+    submitAvailable = true;
+    setSettingsDisabled(true);
+    renderCounter(0);
+    clearRing();
+    updatePrimary();
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function submit() {
+    if (!canSubmit()) { return; }
+    submitAvailable = false;
+    var hit = Math.random() < settings.pity;
+    if (hit) {
+      resetToIdle();
+    } else {
+      updatePrimary();
+    }
+  }
+
+  function resetToIdle() {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+    state = 'idle';
+    submitAvailable = true;
+    prevPhase = 'work';
+    setSettingsDisabled(false);
+    renderCounter(0);
+    clearRing();
+    updatePrimary();
+  }
+
+  function setSheetOpen(open) {
+    sheet.classList.toggle('open', open);
+    backdrop.classList.toggle('open', open);
+    sheet.setAttribute('aria-hidden', String(!open));
+    backdrop.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('sheet-open', open);
+  }
+
+  function openSheet(key) {
+    var cfg = PRESETS[key];
+    sheetTitle.textContent = cfg.label;
+    sheetOptions.innerHTML = '';
+
+    cfg.values.forEach(function (v) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'option';
+      btn.textContent = formatValue(key, v) + cfg.unit;
+      btn.setAttribute('aria-label', chipLabel(key, v));
+      if (settings[key] === v) {
+        btn.classList.add('selected');
+        btn.setAttribute('aria-current', 'true');
+      }
+      btn.addEventListener('click', function () { selectOption(key, v); });
+      sheetOptions.appendChild(btn);
+    });
+
+    setSheetOpen(true);
+    var focusTarget = sheetOptions.querySelector('.selected') || sheetOptions.querySelector('.option');
+    if (focusTarget) { focusTarget.focus(); }
+  }
+
+  function closeSheet() {
+    setSheetOpen(false);
+    if (lastFocused) { lastFocused.focus(); }
+  }
+
+  function selectOption(key, v) {
+    settings[key] = v;
+    renderChips();
+    closeSheet();
+  }
+
+  function trapFocus(e) {
+    if (e.key !== 'Tab') { return; }
+    var focusables = Array.prototype.slice.call(sheet.querySelectorAll('button:not([disabled])'));
+    if (focusables.length === 0) { return; }
+    var first = focusables[0];
+    var last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      if (state === 'active') { return; }
+      lastFocused = chip;
+      openSheet(chip.getAttribute('data-key'));
+    });
+  });
+
+  sheetClose.addEventListener('click', closeSheet);
+  backdrop.addEventListener('click', closeSheet);
+  sheet.addEventListener('keydown', trapFocus);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && sheet.classList.contains('open')) {
+      closeSheet();
+    }
+  });
+
+  primary.addEventListener('click', function () {
+    if (state === 'idle') {
+      launch();
+    } else {
+      submit();
+    }
+  });
+
+  renderChips();
+  clearRing();
+  updatePrimary();
+})();
+</script>
+</body>
+</html>
